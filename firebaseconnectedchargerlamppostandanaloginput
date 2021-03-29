@@ -1,0 +1,93 @@
+int sensorPin = A0;                 // References A0 analog pin
+int sensorValue;                    // 10-bit equivalent value of analog signal
+#include <Firebase.h>  
+#include <FirebaseArduino.h>  
+#include <FirebaseCloudMessaging.h>  
+#include <FirebaseError.h>  
+#include <FirebaseHttpClient.h>  
+#include <FirebaseObject.h>  
+#include <ESP8266WiFi.h>  
+#include <FirebaseArduino.h>  
+// Set these to run example.  
+#define FIREBASE_HOST "car-charger-dysm-default-rtdb.firebaseio.com"  
+#define FIREBASE_AUTH "KDJ0Jv62214LEN5TNzSlA8GI0lfXSxqE5CNIjJUG"  
+#define WIFI_SSID "Hidden Network"  
+#define WIFI_PASSWORD "JariwalaYARUAS"  
+#define MEASURES "measures" // Firebase Realtime Database node to store measures
+#define MEASURE_DELAY_SEC 3
+#define charger D1
+#define lamppost D2
+
+void setup() {  
+  Serial.begin(9600);  
+  
+  // connect to wifi.  
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);  
+  Serial.print("connecting");  
+  while (WiFi.status() != WL_CONNECTED) {  
+    Serial.print(".");  
+    delay(500);  
+  }  
+  Serial.println();  
+  Serial.print("connected: ");  
+  Serial.println(WiFi.localIP());  
+    
+  Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);  
+  pinMode(charger ,OUTPUT); 
+  Firebase.set("CHARGER_STATUS",0);  
+  pinMode(lamppost ,OUTPUT); 
+  Firebase.set("LAMP_POST",0); 
+ 
+}    
+int chargervar = 0; 
+int lampostvar = 0; 
+
+void loop() {  
+
+  // set value  
+ // Let's measure analog value and print it
+  sensorValue = analogRead(sensorPin);
+  Serial.println(sensorValue);
+  // Let's push it in firebase Realtime Database
+  Firebase.setInt(MEASURES, sensorValue);
+  if (Firebase.failed()) {
+      Serial.print("pushing failed:");
+      Serial.println(Firebase.error());  
+      return;
+  }
+  // Wait before looping
+  delay(MEASURE_DELAY_SEC * 1);
+  // update value  
+lamppostmeth();
+chargermeth();
+}  
+void lamppostmeth(){
+  int lamppostvar =Firebase.getInt("LAMP_POST");  
+  // handle error  
+  if (lamppostvar==1) {  
+      Serial.print("LED is ON");  
+      digitalWrite(lamppost,HIGH);  
+      Serial.println(Firebase.error());    
+      return;  
+       delay(1);  
+  }  
+ else{  
+   Serial.print("LED is OFF");  
+   digitalWrite(lamppost,LOW);  
+ }   
+}
+void chargermeth(){
+  int chargervar =Firebase.getInt("CHARGER_STATUS");  
+  // handle error  
+  if (chargervar==1) {  
+      Serial.print("LED is ON");  
+      digitalWrite(charger,HIGH);  
+      Serial.println(Firebase.error());    
+      return;  
+       delay(1);  
+  }  
+ else{  
+   Serial.print("LED is OFF");  
+   digitalWrite(charger,LOW);  
+ }    
+}
