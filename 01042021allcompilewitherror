@@ -1,0 +1,114 @@
+#include <Firebase.h>  
+#include <FirebaseArduino.h>  
+#include <FirebaseCloudMessaging.h>  
+#include <FirebaseError.h>  
+#include <FirebaseHttpClient.h>  
+#include <FirebaseObject.h>  
+#include <ESP8266WiFi.h>  
+#include <FirebaseArduino.h>  
+// Set these to run example.  
+#define FIREBASE_HOST "car-charger-dysm-default-rtdb.firebaseio.com"  
+#define FIREBASE_AUTH "KDJ0Jv62214LEN5TNzSlA8GI0lfXSxqE5CNIjJUG"  
+#define WIFI_SSID "Hidden Network"  
+#define WIFI_PASSWORD "JariwalaYARUAS"  
+#define MEASURES "watt" // Firebase Realtime Database node to store measures
+#define MEASURE_DELAY_SEC 3
+#define charger D1
+#define lamppost D2
+const int sensorIn = A0;
+int mVperAmp = 66; //185mV for 5Amp module , 100mV for 10A , 66mv for 20 & 30 Amp module
+double Voltage = 0;
+double Vp = 0;
+double Vrms = 0;
+double Irms = 0;
+void setup() {  
+  Serial.begin(9600);  
+  
+  // connect to wifi.  
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);  
+  Serial.print("connecting");  
+  while (WiFi.status() != WL_CONNECTED) {  
+    Serial.print(".");  
+    delay(500);  
+  }  
+  Serial.println();  
+  Serial.print("connected: ");  
+  Serial.println(WiFi.localIP());  
+    
+  Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);  
+  pinMode(charger ,OUTPUT); 
+  Firebase.set("CHARGER_STATUS",0);  
+  pinMode(lamppost ,OUTPUT); 
+  Firebase.set("LAMP_POST",0); 
+ 
+}    
+int chargervar = 0; 
+int lampostvar = 0; 
+
+void loop() {  
+
+ //From the ammeter code for ammeter
+  Voltage = getVPP();
+  Vrms = (Voltage / 2.0) * 0.707; // sq root
+  Irms = ((Vrms * 1000) / mVperAmp) ;
+  Serial.print(Irms-0.05);
+  Serial.println(" Amps");
+  Firebase.setInt(MEASURES, 230*(Irms-0.05));
+
+  // update value  
+lamppostmeth();
+chargermeth();
+}  
+void lamppostmeth(){
+  int lamppostvar =Firebase.getInt("LAMP_POST");  
+  // handle error  
+  if (lamppostvar==1) {   
+      digitalWrite(lamppost,HIGH);  
+      Serial.println(Firebase.error());    
+      return;  
+       delay(1);  
+  }  
+ else{  
+   digitalWrite(lamppost,LOW);  
+ }   
+}
+void chargermeth(){
+  int chargervar =Firebase.getInt("CHARGER_STATUS");  
+  // handle error  
+  if (chargervar==1) {  
+      Serial.print("LED is ON");  
+      digitalWrite(charger,HIGH);  
+      Serial.println(Firebase.error());    
+      return;  
+       delay(1);  
+  }  
+ else{  
+   digitalWrite(charger,LOW);  
+ }    
+}
+double getVPP()
+{
+  float result;
+  int readValue; //value read from the sensor
+  int maxValue = 0; // store max value here
+  int minValue = 1024; // store min value here
+  uint32_t start_time = millis();
+  while ((millis() - start_time) < 1000) //sample for 1 Sec
+  {
+    readValue = analogRead(sensorIn);
+    // see if you have a new maxValue
+    if (readValue > maxValue)
+    {
+      /*record the menimum sensor value*/
+      maxValue = readValue;
+    }
+    if (readValue < minValue)
+    {
+      /*record the menimum sensor value*/
+      minValue = readValue;
+    }
+  }
+  // Subtract min from max
+  result = ((maxValue - minValue) * 5) / 1024.0;
+  return result;
+}
