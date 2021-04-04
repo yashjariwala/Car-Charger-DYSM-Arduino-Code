@@ -1,0 +1,68 @@
+#include <ESP8266WiFi.h>
+#include <FirebaseESP8266.h> //1. Install this library
+
+#define FIREBASE_HOST "http://car-charger-dysm-default-rtdb.firebaseio.com" 
+#define FIREBASE_AUTH "KDJ0Jv62214LEN5TNzSlA8GI0lfXSxqE5CNIjJUG"
+#define WIFI_SSID "Hidden Network"
+#define WIFI_PASSWORD "JariwalaYARUAS"
+
+
+void setup() {
+
+    pinMode(D0, OUTPUT);
+    pinMode(D1, OUTPUT);
+    Serial.begin(9600);
+    // connect to wifi. 
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+    Serial.print("connecting");
+    while (WiFi.status() != WL_CONNECTED) {
+        Serial.print(".");
+        delay(500);
+    }
+
+    Serial.println();
+    Serial.print("connected: ");
+    Serial.println(WiFi.localIP());
+
+    Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
+}
+
+FirebaseData fbdo1;
+FirebaseData fbdo2;
+
+void loop() {
+lamppostmethod();
+delay(500);
+chargermethod();
+}
+void lamppostmethod(){
+      if (Firebase.getBool(fbdo1, "/LAMPPOST_STATUS")) {
+        if (fbdo1.dataType() == "boolean") {
+            if(fbdo1.boolData() == 1) {
+                digitalWrite(D0, HIGH);
+            } else {
+                digitalWrite(D0, LOW);
+            }
+        } else {
+            Serial.println("Check if you have same dataType: " + fbdo1.dataType());
+        }
+    } else {
+        Serial.println(fbdo1.errorReason());
+    }
+}
+void chargermethod(){
+      if (Firebase.getBool(fbdo2, "/CHARGER_STATUS")) {
+        if (fbdo2.dataType() == "boolean") {
+            if(fbdo2.boolData() == 1) {
+                digitalWrite(D1, HIGH);
+            } else {
+                digitalWrite(D1, LOW);
+            }
+        } else {
+            Serial.println("Check if you have same dataType: " + fbdo2.dataType());
+        }
+    } else {
+        Serial.println(fbdo2.errorReason());
+    }
+}
