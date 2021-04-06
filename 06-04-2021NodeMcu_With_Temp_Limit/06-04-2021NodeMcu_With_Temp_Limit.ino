@@ -24,15 +24,13 @@ float watt1;
 //Tarrif per unit set value here 
 //unsigned int energyTariff = 10; 
 float bill=0;
-
+//Temp Limit for fire cut off!
 float templimit=45;
 //Settings to connect to wifi and firebase
 #define FIREBASE_HOST "http://car-charger-dysm-default-rtdb.firebaseio.com" 
 #define FIREBASE_AUTH "KDJ0Jv62214LEN5TNzSlA8GI0lfXSxqE5CNIjJUG"
 #define WIFI_SSID "Hidden Network"
 #define WIFI_PASSWORD "JariwalaYARUAS"
-
-
 void setup() {
     //Setting input and output pins
     pinMode(D0, OUTPUT);
@@ -60,7 +58,7 @@ void setup() {
 FirebaseData fbdo1;
 //Initalizing Object for charger method 
 FirebaseData fbdo2;
-//Initalizing Object for enrgymeter method 
+//Initalizing Object for enrgymeter and other method 
 FirebaseData fbdo3;
 
 void loop() {
@@ -73,7 +71,6 @@ chargermethod();
 delay(500);
 //calling temprate sensor method
 tempraturemeasuresensor();
-
 }
 
 //lamppost method
@@ -185,6 +182,7 @@ void tempraturemeasuresensor(){
 float tempC = DHT.readTemperature();
 //Reporting value of temp to Firebase
 Firebase.setFloat(fbdo3,"/TempraturePole", tempC);
+//Cut off everything if temp goes above limit
 if(tempC>templimit){
   Firebase.setBool(fbdo3,"/CHARGER_STATUS",false);
   Firebase.setBool(fbdo3,"/LAMPPOST_STATUS",false);
