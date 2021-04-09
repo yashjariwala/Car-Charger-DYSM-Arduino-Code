@@ -56,6 +56,10 @@ void setup() {
   //Connecting to firebase
   Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
   DHT.begin();
+  Voltage = getVPP();
+  Vrmserror = (Voltage / 2.0) * 0.707; // sq root
+  //Setting offset for zero value
+  errorinmetersensor = (((Vrmserror * 1000) / mVperAmp))  ;
 
 }
 //Intializing Object for lamppost method
@@ -66,6 +70,7 @@ FirebaseData fbdo2;
 FirebaseData fbdo3;
 
 void loop() {
+  
   //calling lamp post method
   lamppostmethod();
   //slow down processor for processing and posting data
@@ -115,12 +120,6 @@ void chargermethod() {
       } else {
         //if bool data is false
         digitalWrite(D1, LOW);
-        Voltage = getVPP();
-        Vrmserror = (Voltage / 2.0) * 0.707; // sq root
-        //Setting offset for zero value
-        errorinmetersensor = (((Vrmserror * 1000) / mVperAmp))  ;
-        Serial.println("Error in sesor value to correct: ");
-        Serial.print(errorinmetersensor);
         //ESP.restart();
         watt[0]=0.0000;
         watt[1]=0.0000;
