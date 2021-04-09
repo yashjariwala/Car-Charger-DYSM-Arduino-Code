@@ -14,6 +14,8 @@ double Voltage = 0;
 double Vp = 0;
 double Vrms = 0;
 double Irms = 0;
+float errorinmetersensor=0;
+float Vrmserror=0;
 
 //For calculation of billing
 char watt[5];
@@ -105,13 +107,20 @@ void chargermethod() {
     if (fbdo2.dataType() == "boolean") {
       //if bool data is true
       if (fbdo2.boolData() == 1) {
-        digitalWrite(D1, HIGH);
         energymeter();
+        delay(3000);
+        digitalWrite(D1, HIGH);
         delay(500);
-
+        offchargerifrechargecomplete();
       } else {
         //if bool data is false
         digitalWrite(D1, LOW);
+        Voltage = getVPP();
+        Vrmserror = (Voltage / 2.0) * 0.707; // sq root
+        //Setting offset for zero value
+        errorinmetersensor = (((Vrmserror * 1000) / mVperAmp))  ;
+        Serial.println("Error in sesor value to correct: ");
+        Serial.print(errorinmetersensor);
         //ESP.restart();
         watt[0]=0.0000;
         watt[1]=0.0000;
@@ -119,11 +128,8 @@ void chargermethod() {
         watt[3]=0.0000;
         watt[4]=0.0000;
         Wh = 0.0000;
-
-        Serial.println("Resetting...watt1:" );
-        Serial.print(watt1);
-
-
+        current_time = 0;
+        last_time = 0;
       }
     } else {
       //Errror if any print to com port
@@ -140,7 +146,7 @@ void energymeter() {
   Voltage = getVPP();
   Vrms = (Voltage / 2.0) * 0.707; // sq root
   //Setting offset for zero value
-  Irms = (((Vrms * 1000) / mVperAmp)-0.069042968)  ;
+  Irms = (((Vrms * 1000) / mVperAmp)-errorinmetersensor)  ;
   //Ampere Sensor Value
   //Serial.println(Irms);
   //Posting Value of ampere to database
@@ -204,4 +210,26 @@ void tempraturemeasuresensor() {
     Firebase.setBool(fbdo3, "/Emergency", true);
   }
   delay(500);
+}
+void  offchargerifrechargecomplete(){
+if (Firebase.getString(fbdo3,"/RechargeAmount")){
+ if (fbdo3.dataType()=="string"){
+  Serial.println("Recharge Amount : ");
+  Serial.println(fbdo3.stringData());
+  Serial.println("Bill Amount : ");
+  Serial.println(bill);
+  float usedamountfloat = fbdo3.stringData().toFloat();
+  if(bill>=usedamountfloat){
+    Firebase.setBool(fbdo3, "/CHARGER_STATUS", false);
+  }
+ }
+ else
+ {
+  Serial.print("Error in if 2");
+ }
+  
+}
+else{
+  Serial.print("Error in if 1");
+}
 }
