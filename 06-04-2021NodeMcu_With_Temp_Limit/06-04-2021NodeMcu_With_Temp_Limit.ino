@@ -1,12 +1,16 @@
-//Library
+//Library for firebase and wifi
 #include <ESP8266WiFi.h>
 #include <FirebaseESP8266.h>
 #include <ArduinoJson.h>
 #include <ESP8266HTTPClient.h>
+
 //Temp sensor library
 #include <DHT.h>
+
+//Temp sensor pin setting
 #define DHT11_PIN 2
 DHT DHT(DHT11_PIN, DHT11);
+
 //Current Sensor Settings
 const int sensorIn = A0;
 int mVperAmp = 66; //185mV for 5Amp module , 100mV for 10A , 66mv for 20 & 30 Amp module
@@ -23,25 +27,27 @@ unsigned long last_time = 0;
 unsigned long current_time = 0;
 float Wh = 0 ;
 float watt1;
-//float bill_amount = 0;
-//Tarrif per unit set value here
-//unsigned int energyTariff = 10;
 float bill = 0;
 
 //Temp Limit for fire cut off!
 float templimit = 45;
+
 //Settings to connect to wifi and firebase
 #define FIREBASE_HOST "http://car-charger-dysm-default-rtdb.firebaseio.com"
 #define FIREBASE_AUTH "KDJ0Jv62214LEN5TNzSlA8GI0lfXSxqE5CNIjJUG"
 #define WIFI_SSID "Hidden Network"
 #define WIFI_PASSWORD "JariwalaYARUAS"
+
+//Exeuted only once
 void setup() {
   //Setting input and output pins
   pinMode(D0, OUTPUT);
   pinMode(D1, OUTPUT);
   pinMode(A0, INPUT_PULLUP);
+  
   //Setting serial data for troubleshooting
   Serial.begin(9600);
+  
   // connect to wifi.
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.print("connecting");
@@ -49,13 +55,17 @@ void setup() {
     Serial.print(".");
     delay(500);
   }
-
   Serial.println();
   Serial.print("connected: ");
   Serial.println(WiFi.localIP());
+  
   //Connecting to firebase
   Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
+  
+  //Temprature Sensor Beigin
   DHT.begin();
+
+  //Current sensor Error Adjustment 
   Voltage = getVPP();
   Vrmserror = (Voltage / 2.0) * 0.707; // sq root
   //Setting offset for zero value
@@ -77,6 +87,7 @@ void loop() {
   delay(500);
   //calling charging method
   chargermethod();
+  //slow down processor for processing and posting data
   delay(500);
   //calling temprate sensor method
   tempraturemeasuresensor();
@@ -96,11 +107,11 @@ void lamppostmethod() {
         digitalWrite(D0, LOW);
       }
     } else {
-      //Errror if any print to com port
+      //Error if any print to com port
       Serial.println("Check if you have same dataType: " + fbdo1.dataType());
     }
   } else {
-    //Errror if any print to com port
+    //Error if any print to com port
     Serial.println(fbdo1.errorReason());
   }
 }
@@ -112,15 +123,18 @@ void chargermethod() {
     if (fbdo2.dataType() == "boolean") {
       //if bool data is true
       if (fbdo2.boolData() == 1) {
+        //Calling Energy Meter Method
         energymeter();
         delay(3000);
+        //Turning on the relay
         digitalWrite(D1, HIGH);
         delay(500);
+        //caliing Method off if charge value is equal to recharge amount
         offchargerifrechargecomplete();
-      } else {
+        } else {
         //if bool data is false
         digitalWrite(D1, LOW);
-        //ESP.restart();
+        //Resetting to zero once turned off
         watt[0]=0.0000;
         watt[1]=0.0000;
         watt[2]=0.0000;
@@ -140,22 +154,23 @@ void chargermethod() {
   }
 }
 //Energy Meter Method1
-
 void energymeter() {
+  //Calling sensor method to measure 
   Voltage = getVPP();
+  //Voltage calculation
   Vrms = (Voltage / 2.0) * 0.707; // sq root
-  //Setting offset for zero value
+  //Measure Current value
   Irms = (((Vrms * 1000) / mVperAmp)-errorinmetersensor)  ;
-  //Ampere Sensor Value
-  //Serial.println(Irms);
   //Posting Value of ampere to database
   Firebase.setDouble(fbdo3, "/EnergyMeter/Ampere", Irms);
   //setting voltage value
   int Voltage = 230;
   //Calculate power
   double Power = Voltage * Irms;
+  //Fot watt hour calculating time 
   last_time = current_time;
   current_time = millis();
+  //Watt hour calculation 
   Wh = Wh +  Power * (( current_time - last_time) / 3600000.0);
   dtostrf(Wh, 4, 2, watt);
   //Rounding off
@@ -163,18 +178,20 @@ void energymeter() {
   //Reporting wattage to Firebase
   Firebase.setFloat(fbdo3, "/EnergyMeter/WattHour", watt1);
   //Calculating Amount
-  //bill_amount = watt1*(energyTariff/1000);
+  //bill_amount = watt1*(energyTariff/1000); For our use case: 10/1000
   bill = watt1 * 0.01;
-  Serial.println(bill);
   //Reporting Amount To Firebase
   Firebase.setFloat(fbdo3, "/EnergyMeter/Bill", bill);
 }
 double getVPP()
 {
   float result;
-  int readValue; //value read from the sensor
-  int maxValue = 0; // store max value here
-  int minValue = 1024; // store min value here
+  //value read from the sensor
+  int readValue; 
+  // store max value here
+  int maxValue = 0; 
+  // store min value here
+  int minValue = 1024; 
   uint32_t start_time = millis();
   while ((millis() - start_time) < 1000) //sample for 1 Sec
   {
@@ -211,24 +228,27 @@ void tempraturemeasuresensor() {
   delay(500);
 }
 void  offchargerifrechargecomplete(){
+  //Getting value from database
 if (Firebase.getString(fbdo3,"/RechargeAmount")){
+  //check data type
  if (fbdo3.dataType()=="string"){
-  Serial.println("Recharge Amount : ");
-  Serial.println(fbdo3.stringData());
-  Serial.println("Bill Amount : ");
-  Serial.println(bill);
+  //convert for comparison 
   float usedamountfloat = fbdo3.stringData().toFloat();
+  //Comparison of bill amount and used amount
   if(bill>=usedamountfloat){
+    //Stop charger
     Firebase.setBool(fbdo3, "/CHARGER_STATUS", false);
   }
  }
  else
  {
-  Serial.print("Error in if 2");
+  //Error
+  Serial.print("offchargermethError in if 2");
  }
   
 }
 else{
-  Serial.print("Error in if 1");
+  //Error
+  Serial.print("offchargermethError in if 1");
 }
 }
