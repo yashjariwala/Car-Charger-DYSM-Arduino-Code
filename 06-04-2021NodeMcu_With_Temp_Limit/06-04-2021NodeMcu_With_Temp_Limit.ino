@@ -17,9 +17,10 @@ int mVperAmp = 66; //185mV for 5Amp module , 100mV for 10A , 66mv for 20 & 30 Am
 double Voltage = 0;
 double Vp = 0;
 double Vrms = 0;
+double Irmswitherror = 0;
 double Irms = 0;
-float errorinmetersensor=0;
-float Vrmserror=0;
+double errorinmetersensor = 0;
+float Vrmserror = 0;
 
 //For calculation of billing
 char watt[5];
@@ -44,10 +45,10 @@ void setup() {
   pinMode(D0, OUTPUT);
   pinMode(D1, OUTPUT);
   pinMode(A0, INPUT_PULLUP);
-  
+
   //Setting serial data for troubleshooting
   Serial.begin(9600);
-  
+
   // connect to wifi.
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.print("connecting");
@@ -58,14 +59,14 @@ void setup() {
   Serial.println();
   Serial.print("connected: ");
   Serial.println(WiFi.localIP());
-  
+
   //Connecting to firebase
   Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
-  
+
   //Temprature Sensor Beigin
   DHT.begin();
 
-  //Current sensor Error Adjustment 
+  //Current sensor Error Adjustment
   Voltage = getVPP();
   Vrmserror = (Voltage / 2.0) * 0.707; // sq root
   //Setting offset for zero value
@@ -80,7 +81,7 @@ FirebaseData fbdo2;
 FirebaseData fbdo3;
 
 void loop() {
-  
+
   //calling lamp post method
   lamppostmethod();
   //slow down processor for processing and posting data
@@ -102,9 +103,11 @@ void lamppostmethod() {
       //if bool data is true
       if (fbdo1.boolData() == 1) {
         digitalWrite(D0, HIGH);
+        delay(500);
       } else {
         //if bool data is false
         digitalWrite(D0, LOW);
+        delay(500);
       }
     } else {
       //Error if any print to com port
@@ -131,15 +134,15 @@ void chargermethod() {
         delay(500);
         //caliing Method off if charge value is equal to recharge amount
         offchargerifrechargecomplete();
-        } else {
+      } else {
         //if bool data is false
         digitalWrite(D1, LOW);
         //Resetting to zero once turned off
-        watt[0]=0.0000;
-        watt[1]=0.0000;
-        watt[2]=0.0000;
-        watt[3]=0.0000;
-        watt[4]=0.0000;
+        watt[0] = 0.0000;
+        watt[1] = 0.0000;
+        watt[2] = 0.0000;
+        watt[3] = 0.0000;
+        watt[4] = 0.0000;
         Wh = 0.0000;
         current_time = 0;
         last_time = 0;
@@ -155,22 +158,23 @@ void chargermethod() {
 }
 //Energy Meter Method1
 void energymeter() {
-  //Calling sensor method to measure 
+  //Calling sensor method to measure
   Voltage = getVPP();
   //Voltage calculation
   Vrms = (Voltage / 2.0) * 0.707; // sq root
   //Measure Current value
-  Irms = (((Vrms * 1000) / mVperAmp)-errorinmetersensor)  ;
+  Irmswitherror = ((Vrms * 1000) / mVperAmp)  ;
   //Posting Value of ampere to database
+  Irms = (Irmswitherror-errorinmetersensor);
   Firebase.setDouble(fbdo3, "/EnergyMeter/Ampere", Irms);
   //setting voltage value
-  int Voltage = 230;
+  int Voltagesupply = 230;
   //Calculate power
-  double Power = Voltage * Irms;
-  //Fot watt hour calculating time 
+  double Power = Voltagesupply * Irms;
+  //Fot watt hour calculating time
   last_time = current_time;
   current_time = millis();
-  //Watt hour calculation 
+  //Watt hour calculation
   Wh = Wh +  Power * (( current_time - last_time) / 3600000.0);
   dtostrf(Wh, 4, 2, watt);
   //Rounding off
@@ -187,11 +191,11 @@ double getVPP()
 {
   float result;
   //value read from the sensor
-  int readValue; 
+  int readValue;
   // store max value here
-  int maxValue = 0; 
+  int maxValue = 0;
   // store min value here
-  int minValue = 1024; 
+  int minValue = 1024;
   uint32_t start_time = millis();
   while ((millis() - start_time) < 1000) //sample for 1 Sec
   {
@@ -219,6 +223,7 @@ void tempraturemeasuresensor() {
   float tempC = DHT.readTemperature();
   //Reporting value of temp to Firebase
   Firebase.setFloat(fbdo3, "/TempraturePole", tempC);
+  delay(500);
   //Cut off everything if temp goes above limit
   if (tempC > templimit) {
     Firebase.setBool(fbdo3, "/CHARGER_STATUS", false);
@@ -227,28 +232,28 @@ void tempraturemeasuresensor() {
   }
   delay(500);
 }
-void  offchargerifrechargecomplete(){
+void  offchargerifrechargecomplete() {
   //Getting value from database
-if (Firebase.getString(fbdo3,"/RechargeAmount")){
-  //check data type
- if (fbdo3.dataType()=="string"){
-  //convert for comparison 
-  float usedamountfloat = fbdo3.stringData().toFloat();
-  //Comparison of bill amount and used amount
-  if(bill>=usedamountfloat){
-    //Stop charger
-    Firebase.setBool(fbdo3, "/CHARGER_STATUS", false);
+  if (Firebase.getString(fbdo3, "/RechargeAmount")) {
+    //check data type
+    if (fbdo3.dataType() == "string") {
+      //convert for comparison
+      float usedamountfloat = fbdo3.stringData().toFloat();
+      //Comparison of bill amount and used amount
+      if (bill >= usedamountfloat) {
+        //Stop charger
+        Firebase.setBool(fbdo3, "/CHARGER_STATUS", false);
+      }
+    }
+    else
+    {
+      //Error
+      Serial.print("offchargermethError in if 2");
+    }
+
   }
- }
- else
- {
-  //Error
-  Serial.print("offchargermethError in if 2");
- }
-  
-}
-else{
-  //Error
-  Serial.print("offchargermethError in if 1");
-}
+  else {
+    //Error
+    Serial.print("offchargermethError in if 1");
+  }
 }
