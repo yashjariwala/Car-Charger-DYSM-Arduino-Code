@@ -14,13 +14,14 @@ DHT DHT(DHT11_PIN, DHT11);
 //Current Sensor Settings
 const int sensorIn = A0;
 int mVperAmp = 66; //185mV for 5Amp module , 100mV for 10A , 66mv for 20 & 30 Amp module
-double Voltage = 0;
-double Vp = 0;
-double Vrms = 0;
-double Irmswitherror = 0;
-double Irms = 0;
-double errorinmetersensor = 0;
+float Voltage = 0;
+float Vp = 0;
+float Vrms = 0;
+float Irms = 0;
+float errorinmetersensor = 0;
 float Vrmserror = 0;
+//setting voltage value
+float Voltagesupply = 230.00;
 
 //For calculation of billing
 char watt[5];
@@ -66,6 +67,7 @@ void setup() {
   //Temprature Sensor Beigin
   DHT.begin();
 
+
   //Current sensor Error Adjustment
   Voltage = getVPP();
   Vrmserror = (Voltage / 2.0) * 0.707; // sq root
@@ -92,6 +94,7 @@ void loop() {
   delay(500);
   //calling temprate sensor method
   tempraturemeasuresensor();
+  delay(500);
 }
 
 //lamppost method
@@ -163,12 +166,9 @@ void energymeter() {
   //Voltage calculation
   Vrms = (Voltage / 2.0) * 0.707; // sq root
   //Measure Current value
-  Irmswitherror = ((Vrms * 1000) / mVperAmp)  ;
+  Irms = (((Vrms * 1000) / mVperAmp)-errorinmetersensor)  ;
   //Posting Value of ampere to database
-  Irms = (Irmswitherror-errorinmetersensor);
-  Firebase.setDouble(fbdo3, "/EnergyMeter/Ampere", Irms);
-  //setting voltage value
-  int Voltagesupply = 230;
+  Firebase.setFloat(fbdo3, "/EnergyMeter/Ampere", Irms);
   //Calculate power
   double Power = Voltagesupply * Irms;
   //Fot watt hour calculating time
@@ -181,6 +181,7 @@ void energymeter() {
   watt1 = atof(watt);
   //Reporting wattage to Firebase
   Firebase.setFloat(fbdo3, "/EnergyMeter/WattHour", watt1);
+
   //Calculating Amount
   //bill_amount = watt1*(energyTariff/1000); For our use case: 10/1000
   bill = watt1 * 0.01;
@@ -222,13 +223,13 @@ void tempraturemeasuresensor() {
   //get value from sensor
   float tempC = DHT.readTemperature();
   //Reporting value of temp to Firebase
-  Firebase.setFloat(fbdo3, "/TempraturePole", tempC);
-  delay(500);
+  Serial.print(tempC);
+  Firebase.setFloat(fbdo1, "/TempraturePole", tempC);
   //Cut off everything if temp goes above limit
   if (tempC > templimit) {
-    Firebase.setBool(fbdo3, "/CHARGER_STATUS", false);
-    Firebase.setBool(fbdo3, "/LAMPPOST_STATUS", false);
-    Firebase.setBool(fbdo3, "/Emergency", true);
+    Firebase.setBool(fbdo1, "/CHARGER_STATUS", false);
+    Firebase.setBool(fbdo1, "/LAMPPOST_STATUS", false);
+    Firebase.setBool(fbdo1, "/Emergency", true);
   }
   delay(500);
 }
