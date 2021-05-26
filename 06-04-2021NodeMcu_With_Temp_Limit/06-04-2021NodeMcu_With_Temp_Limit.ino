@@ -35,10 +35,10 @@ float bill = 0;
 float templimit = 45;
 
 //Settings to connect to wifi and firebase
-#define FIREBASE_HOST "http://car-charger-dysm-default-rtdb.firebaseio.com"
-#define FIREBASE_AUTH "KDJ0Jv62214LEN5TNzSlA8GI0lfXSxqE5CNIjJUG"
-#define WIFI_SSID "Hidden Network"
-#define WIFI_PASSWORD "JariwalaYARUAS"
+#define FIREBASE_HOST "URL"
+#define FIREBASE_AUTH "PASS"
+#define WIFI_SSID "SSID"
+#define WIFI_PASSWORD "SSIDPASS"
 
 //Exeuted only once
 void setup() {
